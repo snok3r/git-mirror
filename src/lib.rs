@@ -46,6 +46,9 @@ use prometheus::{TextEncoder, Encoder};
 
 use provider::{MirrorResult, Provider};
 
+// Regex matching
+use regex::Regex;
+extern crate regex;
 
 pub fn mirror_repo(
     mirror_dir: String,
@@ -58,7 +61,13 @@ pub fn mirror_repo(
         return Ok(1);
     }
 
-    let origin_dir = Path::new(&mirror_dir).join(slugify(origin));
+    let project_name_matcher = Regex::new(r"\b[^/]+.git\b").unwrap().find(origin).unwrap();
+    let project_name: String = origin.chars()
+                                    .skip(project_name_matcher.start())
+                                    .take(project_name_matcher.end())
+                                    .collect();
+
+    let origin_dir = Path::new(&mirror_dir).join(project_name);
     debug!("Using origin dir: {0:?}", origin_dir);
 
     // Group common setting for al git commands in this closure
