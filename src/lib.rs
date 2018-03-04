@@ -18,10 +18,6 @@ use fs2::FileExt;
 extern crate log;
 use log::LogLevel::{Debug, Info};
 
-// Used to create sane local directory names
-extern crate slug;
-use self::slug::slugify;
-
 // UMacros used for hyper
 #[macro_use]
 extern crate hyper;
@@ -55,6 +51,7 @@ pub fn mirror_repo(
     origin: &str,
     destination: &str,
     dry_run: bool,
+    fetch_only: bool,
 ) -> Result<u8, String> {
 
     if dry_run {
@@ -171,30 +168,32 @@ pub fn mirror_repo(
         return Err(format!("Local origin dir is a file: {:?}", origin_dir));
     }
 
-    info!("Push to destination {}", destination);
+    if !fetch_only {
+        info!("Push to destination {}", destination);
 
-    let mut push_cmd = git_base_cmd();
-    push_cmd
-        .current_dir(&origin_dir)
-        .args(&["push", "--mirror"])
-        .arg(destination);
+        let mut push_cmd = git_base_cmd();
+        push_cmd
+            .current_dir(&origin_dir)
+            .args(&["push", "--mirror"])
+            .arg(destination);
 
-    trace!("Push  started: {:?}", push_cmd);
+        trace!("Push started: {:?}", push_cmd);
 
-    let out = push_cmd.status().or_else(|e| {
-        Err(format!(
-            "Unable to execute push command: {:?} ({})",
-            push_cmd,
-            e
-        ))
-    })?;
+        let out = push_cmd.status().or_else(|e| {
+            Err(format!(
+                "Unable to execute push command: {:?} ({})",
+                push_cmd,
+                e
+            ))
+        })?;
 
-    if !out.success() {
-        return Err(format!(
-            "Push command ({:?}) failed with exit code: {}",
-            push_cmd,
-            out
-        ));
+        if !out.success() {
+            return Err(format!(
+                "Push command ({:?}) failed with exit code: {}",
+                push_cmd,
+                out
+            ));
+        }
     }
 
     return Ok(1);
@@ -205,6 +204,7 @@ fn run_sync_task(
     worker_count: usize,
     mirror_dir: &str,
     dry_run: bool,
+    fetch_only: bool,
     label: String,
 ) {
     // Give the work to the worker pool
@@ -251,7 +251,7 @@ fn run_sync_task(
                     proj_start
                         .with_label_values(&[&x.origin, &x.destination, &label])
                         .set(Utc::now().timestamp() as f64);
-                    let c = match mirror_repo(mirror_dir, &x.origin, &x.destination, dry_run) {
+                    let c = match mirror_repo(mirror_dir, &x.origin, &x.destination, dry_run, fetch_only) {
                         Ok(c) => {
                             println!("OK [{}]: {} -> {}", Local::now(), x.origin, x.destination);
                             proj_end
@@ -307,6 +307,7 @@ pub fn do_mirror(
     worker_count: usize,
     mirror_dir: &str,
     dry_run: bool,
+    fetch_only: bool,
     metrics_file: Option<String>,
 ) -> Result<(), String> {
     let start_time = register_gauge_vec!(
@@ -351,7 +352,7 @@ pub fn do_mirror(
         Utc::now().timestamp() as f64,
     );
 
-    run_sync_task(v, worker_count, mirror_dir, dry_run, provider.get_label());
+    run_sync_task(v, worker_count, mirror_dir, dry_run, fetch_only, provider.get_label());
 
     end_time.with_label_values(&[&provider.get_label()]).set(
         Utc::now().timestamp() as
