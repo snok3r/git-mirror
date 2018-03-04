@@ -69,6 +69,9 @@ fn main() {
         .arg(Arg::with_name("dry-run").long("dry-run").help(
             "Only print what to do without actually running any git commands.",
         ))
+        .arg(Arg::with_name("fetch-only").long("fetch-only").help(
+            "Fetch the changes from remote and don't push local ones to remote.",
+        ))
         .arg(
             Arg::with_name("worker-count")
                 .short("c")
@@ -120,6 +123,8 @@ fn main() {
     debug!("Using http enabled: {}", use_http);
     let dry_run = m.is_present("dry-run");
     debug!("Dry run: {}", dry_run);
+    let fetch_only = m.is_present("fetch-only");
+    debug!("Fetch only is on: {}", fetch_only);
     let worker_count = value_t_or_exit!(m.value_of("worker-count"), usize);
     debug!("Worker count: {}", worker_count);
     let metrics_file = value_t!(m.value_of("metrics-file"), String).ok();
@@ -136,7 +141,7 @@ fn main() {
                 private_token: gitlab_private_token,
                 recursive: true,
             };
-            do_mirror(&p, worker_count, &mirror_dir, dry_run, metrics_file)
+            do_mirror(&p, worker_count, &mirror_dir, dry_run, fetch_only, metrics_file)
         }
         Providers::GitHub => {
             let p = GitHub {
@@ -146,7 +151,7 @@ fn main() {
                 private_token: gitlab_private_token,
                 useragent: format!("{}/{}", crate_name!(), crate_version!()),
             };
-            do_mirror(&p, worker_count, &mirror_dir, dry_run, metrics_file)
+            do_mirror(&p, worker_count, &mirror_dir, dry_run, fetch_only, metrics_file)
         }
     };
 
