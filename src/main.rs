@@ -141,7 +141,7 @@ fn main() {
     let dry_run = m.is_present("dry-run");
     debug!("Dry run: {}", dry_run);
     let fetch_only = m.is_present("fetch-only");
-    debug!("Fetch only is on: {}", fetch_only);
+    debug!("Fetch only: {}", fetch_only);
     let worker_count = value_t_or_exit!(m.value_of("worker-count"), usize);
     debug!("Worker count: {}", worker_count);
     let metrics_file = value_t!(m.value_of("metrics-file"), String).ok();
